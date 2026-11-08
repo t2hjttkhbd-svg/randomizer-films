@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ce soir, on regarde quoi ?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- ============================ STYLE (CSS) ============================ -->
+<style>
+:root {
+  --fond: #f2f0f7;
+  --blanc: #ffffff;
+  --encre: #1f1633;
+  --encre-douce: #5b5370;
+  --rouge: #c4152f;
+  --safran: #f0b429;
+  --trait: #d6d1e3;
+  --rayon: 18px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fond); color: var(--encre); font-family: "Instrument Sans", system-ui, sans-serif; line-height: 1.5; }
+h1, h2, h3 { font-family: "Bricolage Grotesque", "Trebuchet MS", sans-serif; margin: 0; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--safran); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.petit { font-size: .85rem; color: var(--encre-douce); margin: .4rem 0 0; }
+
+/* ----- En-tête : menu, titre, recherche ----- */
+.entete { position: relative; padding: 1rem 1.25rem 0; text-align: center; }
+.entete h1 { font-size: clamp(1.4rem, 3.2vw, 2.2rem); font-weight: 800; line-height: 1.1; padding: .45rem 3.5rem 0; margin-bottom: 1rem; }
+.burger {
+  position: absolute; left: 1.25rem; top: 1rem; width: 46px; height: 46px; border-radius: 50%;
+  background: var(--blanc); border: 1px solid var(--trait); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+.burger span { display: block; width: 18px; height: 2px; background: var(--encre); border-radius: 2px; }
+.burger:hover { border-color: var(--encre); }
+
+.recherche { position: relative; width: min(560px, 100%); margin: 0 auto; }
+.recherche svg { position: absolute; left: 1.1rem; top: 50%; transform: translateY(-50%); color: var(--encre-douce); pointer-events: none; }
+.recherche input {
+  width: 100%; padding: .8rem 1.2rem .8rem 3rem; border: 1px solid var(--trait); border-radius: 999px;
+  background: var(--blanc); box-shadow: 0 1px 6px rgba(31, 22, 51, .12);
+}
+.recherche input:hover, .recherche input:focus { box-shadow: 0 2px 10px rgba(31, 22, 51, .2); }
+.resultats-recherche {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20; list-style: none; margin: 0; padding: .4rem;
+  background: var(--blanc); border: 1px solid var(--trait); border-radius: 14px; max-height: 60vh; overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(31, 22, 51, .18); text-align: left;
+}
+.resultats-recherche li { display: flex; align-items: center; gap: .4rem; }
+.resultats-recherche li.vide { padding: .6rem; color: var(--encre-douce); }
+.ligne-ouvrir { flex: 1; display: flex; align-items: center; gap: .7rem; padding: .4rem; border: 0; background: none; cursor: pointer; text-align: left; border-radius: 10px; min-width: 0; }
+.ligne-ouvrir:hover { background: var(--fond); }
+.ligne-ouvrir img, .ligne-ouvrir .sans-affiche { width: 40px; height: 60px; object-fit: cover; border-radius: 6px; background: var(--trait); flex: none; }
+.ligne-ouvrir strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ligne-vu { flex: none; padding: .35rem .7rem; border-radius: 8px; border: 1px solid var(--encre); background: none; cursor: pointer; font-size: .88rem; }
+.ligne-vu:hover, .ligne-vu.actif { background: var(--encre); color: #fff; }
+
+/* ----- Menu latéral ----- */
+.voile { position: fixed; inset: 0; background: rgba(31, 22, 51, .45); z-index: 40; }
+.tiroir {
+  position: fixed; top: 0; bottom: 0; left: 0; width: min(290px, 85vw); z-index: 50; background: var(--blanc);
+  padding: 1.25rem; display: flex; flex-direction: column; gap: .4rem;
+  transform: translateX(-100%); visibility: hidden; transition: transform .25s ease, visibility .25s;
+  box-shadow: 4px 0 24px rgba(31, 22, 51, .2);
+}
+.tiroir.ouvert { transform: none; visibility: visible; }
+@media (prefers-reduced-motion: reduce) { .tiroir { transition: none; } }
+.tiroir h2 { font-size: 1.1rem; margin: .3rem 0 .6rem; color: var(--encre-douce); font-weight: 500; }
+.tiroir .nav { text-align: left; padding: .7rem .9rem; border: 0; background: none; border-radius: 10px; cursor: pointer; font-size: 1.02rem; }
+.tiroir .nav:hover { background: var(--fond); }
+.tiroir .nav[aria-current="page"] { background: var(--encre); color: #fff; }
+.tiroir details { margin-top: auto; font-size: .9rem; }
+.tiroir summary { cursor: pointer; color: var(--encre-douce); }
+.tiroir details input { width: 100%; padding: .5rem; margin: .5rem 0; border: 1px solid var(--trait); border-radius: 8px; }
+
+/* ----- Boutons ----- */
+.barre {
+  width: 100%; height: 68px; border: 0; cursor: pointer; background: var(--rouge); color: #fff; border-radius: var(--rayon);
+  font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 1.4rem;
+  box-shadow: 0 2px 8px rgba(31, 22, 51, .22);
+}
+.barre:hover { filter: brightness(1.1); box-shadow: 0 4px 14px rgba(31, 22, 51, .28); }
+.barre:disabled { filter: grayscale(.6); cursor: wait; }
+.barre.moyenne { height: 52px; font-size: 1.1rem; flex: 1; }
+.bouton { padding: .45rem .9rem; border-radius: 10px; border: 1px solid var(--encre); background: var(--blanc); cursor: pointer; }
+.bouton:hover { background: var(--encre); color: #fff; }
+.bouton.moyen { height: 52px; flex: 1; font-size: 1rem; }
+
+/* ----- Accueil ----- */
+main { padding: 0 1.25rem 3rem; }
+.scene { width: min(720px, 100%); margin: 0 auto; padding-top: 12vh; }
+.scene.avec-film { width: min(1060px, 100%); padding-top: 1.25rem; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1.25rem; align-items: start; }
+@media (max-width: 860px) { .scene.avec-film { grid-template-columns: 1fr; } }
+
+.fenetre { background: var(--blanc); border: 1px solid var(--trait); border-radius: 14px; padding: 1.25rem; }
+#fenetreFiltres { position: sticky; top: 1rem; }
+#fenetreFiltres h2 { font-size: 1.05rem; margin-bottom: .8rem; }
+
+/* Filtres : petits rectangles (en ligne sous le bouton, puis en grille dans la fenêtre latérale) */
+.filtres { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-top: 1rem; }
+#fenetreFiltres .filtres { display: grid; grid-template-columns: 1fr 1fr; margin-top: 0; }
+#fenetreFiltres .filtres .large { grid-column: 1 / -1; }
+.puce { background: var(--blanc); border: 1px solid var(--trait); border-radius: 10px; padding: .5rem .8rem; font-size: .93rem; cursor: pointer; max-width: 100%; }
+.puce:hover { border-color: var(--encre-douce); }
+.puce[aria-expanded="true"] { border-color: var(--encre); }
+#fenetreFiltres .puce { width: 100%; }
+.panneau { background: var(--blanc); border: 1px solid var(--trait); border-radius: 14px; padding: 1rem; margin-top: .75rem; text-align: left; }
+
+.pastilles { display: flex; flex-wrap: wrap; gap: .4rem; }
+.pastilles input { position: absolute; opacity: 0; pointer-events: none; }
+.pastilles label { padding: .3rem .7rem; border: 1px solid var(--trait); border-radius: 999px; background: var(--fond); cursor: pointer; font-size: .92rem; display: inline-block; }
+.pastilles input:checked + label { background: var(--encre); color: #fff; border-color: var(--encre); }
+.pastilles input:focus-visible + label { outline: 3px solid var(--safran); outline-offset: 2px; }
+
+/* Fenêtre du film */
+.film { display: grid; grid-template-columns: 220px 1fr; gap: 1.25rem; animation: apparition .35s ease-out; }
+@media (max-width: 600px) { .film { grid-template-columns: 1fr; } }
+@keyframes apparition { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .film { animation: none; } }
+#fenetreFilm.charge .film { opacity: .45; }
+.affiche { position: relative; display: block; align-self: start; border-radius: 10px; overflow: hidden; background: var(--trait); }
+.affiche img { width: 100%; display: block; }
+.affiche .lecture {
+  position: absolute; left: .5rem; bottom: .5rem; display: inline-flex; align-items: center; gap: .35rem;
+  background: rgba(31, 22, 51, .85); color: #fff; padding: .25rem .6rem; border-radius: 999px; font-size: .82rem;
+}
+.affiche:hover .lecture { background: var(--rouge); }
+@media (max-width: 600px) { .affiche { max-width: 240px; } }
+.film h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); font-weight: 800; line-height: 1.1; }
+.meta { color: var(--encre-douce); margin: .4rem 0 .8rem; }
+.note { display: inline-block; background: var(--safran); color: var(--encre); font-weight: 600; padding: .1rem .55rem; border-radius: 6px; margin-right: .5rem; }
+.synopsis { max-width: 62ch; margin: 0 0 .8rem; display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden; }
+.equipe { margin: 0 0 .4rem; }
+.equipe strong, .dispo strong { margin-right: .4rem; }
+.dispo { margin: .8rem 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.plateforme { display: inline-flex; align-items: center; gap: .4rem; padding: .2rem .65rem .2rem .25rem; border: 1px solid var(--trait); border-radius: 999px; text-decoration: none; color: var(--encre); background: var(--fond); font-size: .92rem; }
+.plateforme:hover { border-color: var(--encre); }
+.plateforme img { width: 24px; height: 24px; border-radius: 6px; }
+.actions { display: flex; gap: .6rem; margin-top: 1.1rem; }
+.message { color: var(--encre-douce); text-align: center; max-width: 46ch; margin: 1rem auto; }
+
+/* ----- Pages Films vus / Catalogue ----- */
+.page-liste { width: min(1060px, 100%); margin: 0 auto; padding-top: 1.5rem; }
+.page-liste h2 { font-size: 1.7rem; margin-bottom: 1rem; }
+.outils { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.25rem; }
+.cartes { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .8rem; }
+.carte-vue { display: flex; gap: .9rem; background: var(--blanc); border: 1px solid var(--trait); border-radius: 14px; padding: .7rem; }
+.miniature { flex: none; width: 70px; height: 105px; padding: 0; border: 0; border-radius: 8px; overflow: hidden; cursor: pointer; background: var(--trait); }
+.miniature img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.carte-vue h3 { font-size: 1.05rem; line-height: 1.2; }
+.carte-vue .titre { background: none; border: 0; padding: 0; cursor: pointer; text-align: left; font: inherit; }
+.carte-vue .titre:hover { text-decoration: underline; }
+.lien-rouge { border: 0; background: none; color: var(--rouge); cursor: pointer; padding: .2rem 0; }
+.lien-rouge:hover { text-decoration: underline; }
+.tuiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }
+.tuile { position: relative; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; }
+.tuile img, .tuile .sans-affiche { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 10px; display: block; background: var(--trait); }
+.tuile:hover img { filter: brightness(.85); }
+.tuile .titre-tuile { display: block; margin-top: .35rem; font-size: .9rem; line-height: 1.25; }
+.tuile .petit { margin: 0; }
+.tuile .tag-vu { position: absolute; top: .4rem; left: .4rem; background: var(--encre); color: #fff; font-size: .75rem; padding: .05rem .5rem; border-radius: 999px; }
+.suite { display: flex; justify-content: center; margin-top: 1.5rem; }
+.suite .bouton { padding: .6rem 1.6rem; }
+
+footer { max-width: 60ch; margin: 2rem auto 1.5rem; padding: 0 1.25rem; color: var(--encre-douce); font-size: .8rem; text-align: center; }
+</style>
+</head>
+
+<!-- ============================ STRUCTURE (HTML) ============================ -->
+<body>
+<header class="entete">
+  <button class="burger" id="boutonMenu" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="tiroir"><span></span><span></span><span></span></button>
+  <h1>Ce soir, on regarde quoi ?</h1>
+  <div class="recherche" role="search">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="champRecherche" type="search" placeholder="Rechercher un film" aria-label="Rechercher un film" autocomplete="off">
+    <ul class="resultats-recherche" id="resultatsRecherche" hidden></ul>
+  </div>
+</header>
+
+<div class="voile" id="voile" hidden></div>
+<nav class="tiroir" id="tiroir" aria-label="Menu principal" inert>
+  <h2>Menu</h2>
+  <button class="nav" type="button" data-vue="accueil">Accueil</button>
+  <button class="nav" type="button" data-vue="vus" id="navVus">Mes films vus (0)</button>
+  <button class="nav" type="button" data-vue="catalogue">Catalogue des plateformes</button>
+  <details id="blocCle">
+    <summary>Mode test local (clé API)</summary>
+    <p class="petit">Sur ton ordinateur, colle ici ta clé TMDB. Sur le site en ligne, ce n’est pas nécessaire.</p>
+    <input id="champCle" type="password" autocomplete="off" aria-label="Clé API TMDB">
+    <button class="bouton" id="boutonCle" type="button">Enregistrer la clé</button>
+  </details>
+</nav>
+
+<main>
+  <!-- ===== Accueil ===== -->
+  <section id="vueAccueil" aria-label="Accueil">
+    <div class="scene" id="scene">
+      <div id="colPrincipale">
+        <button class="barre" id="boutonTirage" type="button">Propose-moi un film</button>
+        <div id="filtresAccueil">
+          <div id="blocFiltres">
+            <div class="filtres" role="group" aria-label="Filtres">
+              <button class="puce large" id="boutonPlateformes" type="button" aria-expanded="false" aria-controls="panneauPlateformes">Toutes les plateformes</button>
+              <select class="puce" id="genre" aria-label="Genre"><option value="">Tous les genres</option></select>
+              <select class="puce" id="epoque" aria-label="Époque de sortie"></select>
+              <select class="puce" id="zone" aria-label="Cinéma d’origine"></select>
+              <select class="puce" id="notoriete" aria-label="Notoriété">
+                <option value="3000">Très connus</option>
+                <option value="500" selected>Films connus</option>
+                <option value="50">Plus confidentiels</option>
+              </select>
+              <select class="puce large" id="vus" aria-label="Films déjà vus">
+                <option value="peuimporte">Vus ou pas vus</option>
+                <option value="pasvus">Pas encore vus</option>
+                <option value="vus">Déjà vus (sans autres filtres)</option>
+              </select>
+            </div>
+            <div class="panneau" id="panneauPlateformes" hidden>
+              <div class="pastilles" id="plateformes"><span class="petit">Chargement…</span></div>
+              <p class="petit">Rien de coché : tous les films, quelle que soit la plateforme (France).</p>
+            </div>
+          </div>
+        </div>
+        <div class="fenetre" id="fenetreFilm" hidden aria-live="polite"></div>
+      </div>
+      <aside class="fenetre" id="fenetreFiltres" hidden aria-label="Filtres">
+        <h2>Filtres</h2>
+        <div id="filtresCote"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===== Films vus ===== -->
+  <section id="vueVus" class="page-liste" aria-label="Mes films vus" hidden>
+    <h2 id="titreVus">Mes films vus</h2>
+    <div class="outils">
+      <select class="puce" id="triVus" aria-label="Trier par date d’ajout">
+        <option value="decroissant">Ajoutés récemment d’abord</option>
+        <option value="croissant">Ajoutés en premier d’abord</option>
+      </select>
+      <select class="puce" id="genreVus" aria-label="Filtrer par genre"><option value="">Tous les genres</option></select>
+    </div>
+    <div class="cartes" id="listeVus"></div>
+  </section>
+
+  <!-- ===== Catalogue ===== -->
+  <section id="vueCatalogue" class="page-liste" aria-label="Catalogue des plateformes" hidden>
+    <h2>Catalogue des plateformes</h2>
+    <div class="outils">
+      <select class="puce" id="catPlateforme" aria-label="Plateforme"></select>
+      <select class="puce" id="catGenre" aria-label="Genre"><option value="">Tous les genres</option></select>
+      <select class="puce" id="catTri" aria-label="Classement">
+        <option value="note">Les mieux notés</option>
+        <option value="pop">Les plus populaires</option>
+        <option value="recent">Les plus récents</option>
+      </select>
+    </div>
+    <div class="tuiles" id="tuilesCatalogue"></div>
+    <p class="message" id="messageCatalogue" hidden></p>
+    <div class="suite"><button class="bouton" id="boutonPlus" type="button" hidden>Voir plus</button></div>
+  </section>
+</main>
+
+<footer>Données films et disponibilités : TMDB (disponibilités fournies par JustWatch). Ce site n’est ni approuvé ni certifié par TMDB.</footer>
+
+<!-- ============================ LOGIQUE (JavaScript) ============================ -->
+<script>
+const API = "https://api.themoviedb.org/3";
+const IMG = "https://image.tmdb.org/t/p/";
+const PAYS = "FR";
+
+const EPOQUES = [
+  { nom: "Toutes les époques", de: "",           a: "" },
+  { nom: "Avant 1970",         de: "",           a: "1969-12-31" },
+  { nom: "Années 70",          de: "1970-01-01", a: "1979-12-31" },
+  { nom: "Années 80",          de: "1980-01-01", a: "1989-12-31" },
+  { nom: "Années 90",          de: "1990-01-01", a: "1999-12-31" },
+  { nom: "Années 2000",        de: "2000-01-01", a: "2009-12-31" },
+  { nom: "Années 2010",        de: "2010-01-01", a: "2019-12-31" },
+  { nom: "Depuis 2020",        de: "2020-01-01", a: "" },
+];
+const ZONES = [
+  { nom: "Cinéma du monde entier", code: "" },
+  { nom: "Hollywood (États-Unis)", code: "US" },
+  { nom: "France", code: "FR" },
+  { nom: "Corée du Sud", code: "KR" },
+  { nom: "Japon", code: "JP" },
+  { nom: "Royaume-Uni", code: "GB" },
+  { nom: "Italie", code: "IT" },
+  { nom: "Espagne", code: "ES" },
+  { nom: "Allemagne", code: "DE" },
+  { nom: "Inde", code: "IN" },
+];
+// Liens directs vers la recherche de la plateforme (ouvre l’application si elle est installée,
+// sur téléphone, sinon le site). Pour les autres plateformes : page du film sur TMDB/JustWatch.
+const RECHERCHE_PLATEFORME = {
+  8:   (t) => "https://www.netflix.com/search?q=" + t,              // Netflix
+  119: (t) => "https://www.primevideo.com/search/?phrase=" + t,     // Prime Video
+};
+
+const $ = (id) => document.getElementById(id);
+function lire(nom, defaut) { try { const v = localStorage.getItem(nom); return v === null ? defaut : JSON.parse(v); } catch (e) { return defaut; } }
+function ecrire(nom, valeur) { try { localStorage.setItem(nom, JSON.stringify(valeur)); } catch (e) { /* stockage indisponible */ } }
+function esc(texte) { const d = document.createElement("div"); d.textContent = texte ?? ""; return d.innerHTML.replace(/"/g, "&quot;"); }
+function auHasard(liste) { return liste[Math.floor(Math.random() * liste.length)]; }
+
+// Données de l’utilisateur (gardées dans le navigateur)
+let vus = lire("films_vus", []);                   // { id, titre, annee, affiche, genres:[ids], ajoute:horodatage }
+let plateformesChoisies = lire("plateformes", []); // identifiants TMDB
+let nomsGenres = {};       // { 28: "Action", ... }
+let fournisseurs = [];     // plateformes de streaming proposées (France)
+let filmCourant = null;    // film affiché dans la fenêtre principale
+
+// ---------- Appel à TMDB ----------
+// Deux modes : en ligne, on passe par /api/tmdb (la clé reste secrète côté serveur) ;
+// en test local, on utilise la clé collée dans le menu.
+async function appel(chemin, params = {}) {
+  const cle = lire("tmdb_cle", "");
+  let url; const entetes = {};
+  if (cle) {
+    url = new URL(API + chemin);
+    if (cle.length > 40) entetes.Authorization = "Bearer " + cle; else url.searchParams.set("api_key", cle);
+  } else if (location.protocol === "file:") {
+    throw new Error("CLE");
+  } else {
+    url = new URL("/api/tmdb", location.origin);
+    url.searchParams.set("chemin", chemin);
+  }
+  for (const [nom, valeur] of Object.entries(params)) {
+    if (valeur !== "" && valeur != null) url.searchParams.set(nom, valeur);
+  }
+  const reponse = await fetch(url, { headers: entetes });
+  if (reponse.status === 401) throw new Error("CLE");
+  if (!reponse.ok) throw new Error("HTTP " + reponse.status);
+  return reponse.json();
+}
+
+// ---------- Navigation et menu ----------
+function ouvrirMenu(ouvrir) {
+  $("tiroir").classList.toggle("ouvert", ouvrir);
+  $("tiroir").inert = !ouvrir;
+  $("voile").hidden = !ouvrir;
+  $("boutonMenu").setAttribute("aria-expanded", String(ouvrir));
+  $("boutonMenu").setAttribute("aria-label", ouvrir ? "Fermer le menu" : "Ouvrir le menu");
+  if (ouvrir) document.querySelector(".tiroir .nav").focus(); else $("boutonMenu").focus();
+}
+function allerA(vue) {
+  for (const v of ["accueil", "vus", "catalogue"]) $("vue" + v[0].toUpperCase() + v.slice(1)).hidden = (v !== vue);
+  document.querySelectorAll(".tiroir .nav").forEach((b) => {
+    if (b.dataset.vue === vue) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
+  if ($("tiroir").classList.contains("ouvert")) ouvrirMenu(false);
+  window.scrollTo(0, 0);
+  if (vue === "vus") { afficherVus(); completerVus(); }
+  if (vue === "catalogue") ouvrirCatalogue();
+}
+$("boutonMenu").addEventListener("click", () => ouvrirMenu(!$("tiroir").classList.contains("ouvert")));
+$("voile").addEventListener("click", () => ouvrirMenu(false));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { if ($("tiroir").classList.contains("ouvert")) ouvrirMenu(false); fermerRecherche(); }
+});
+document.querySelectorAll(".tiroir .nav").forEach((b) => b.addEventListener("click", () => allerA(b.dataset.vue)));
+$("boutonCle").addEventListener("click", () => { ecrire("tmdb_cle", $("champCle").value.trim()); location.reload(); });
+$("champCle").value = lire("tmdb_cle", "");
+
+// ---------- Filtres ----------
+function majBoutonPlateformes() {
+  const n = plateformesChoisies.length;
+  $("boutonPlateformes").textContent = n ? `Plateformes (${n})` : "Toutes les plateformes";
+}
+function remplirGenres(selectId, premiere) {
+  const s = $(selectId);
+  s.length = 1; s.options[0].text = premiere;
+  Object.entries(nomsGenres).sort((a, b) => a[1].localeCompare(b[1], "fr")).forEach(([id, nom]) => s.add(new Option(nom, id)));
+}
+async function chargerFiltres() {
+  EPOQUES.forEach((e, i) => $("epoque").add(new Option(e.nom, i)));
+  ZONES.forEach((z, i) => $("zone").add(new Option(z.nom, i)));
+  majBoutonPlateformes();
+  try {
+    const [prov, genres] = await Promise.all([
+      appel("/watch/providers/movie", { watch_region: PAYS, language: "fr-FR" }),
+      appel("/genre/movie/list", { language: "fr" }),
+    ]);
+    genres.genres.forEach((g) => { nomsGenres[g.id] = g.name; });
+    remplirGenres("genre", "Tous les genres");
+    remplirGenres("catGenre", "Tous les genres");
+    remplirGenres("genreVus", "Tous les genres");
+    const priorite = (p) => (p.display_priorities && p.display_priorities[PAYS] != null) ? p.display_priorities[PAYS] : p.display_priority;
+    fournisseurs = prov.results.sort((a, b) => priorite(a) - priorite(b)).slice(0, 24);
+    $("plateformes").innerHTML = fournisseurs.map((p) => `
+      <span><input type="checkbox" id="p${p.provider_id}" value="${p.provider_id}" ${plateformesChoisies.includes(p.provider_id) ? "checked" : ""}>
+      <label for="p${p.provider_id}">${esc(p.provider_name)}</label></span>`).join("");
+    $("catPlateforme").innerHTML = fournisseurs.map((p) => `<option value="${p.provider_id}">${esc(p.provider_name)}</option>`).join("");
+    if (plateformesChoisies.length) $("catPlateforme").value = String(plateformesChoisies[0]);
+    afficherVus();
+  } catch (e) {
+    if (e.message === "CLE") {
+      $("plateformes").innerHTML = '<span class="petit">Ouvre le menu et ajoute ta clé API (mode test local).</span>';
+      $("blocCle").open = true;
+    } else {
+      $("plateformes").innerHTML = '<span class="petit">Plateformes indisponibles pour le moment.</span>';
+    }
+  }
+}
+$("plateformes").addEventListener("change", () => {
+  plateformesChoisies = [...document.querySelectorAll("#plateformes input:checked")].map((c) => Number(c.value));
+  ecrire("plateformes", plateformesChoisies);
+  majBoutonPlateformes();
+});
+$("boutonPlateformes").addEventListener("click", () => {
+  const ouvrir = $("panneauPlateformes").hidden;
+  $("panneauPlateformes").hidden = !ouvrir;
+  $("boutonPlateformes").setAttribute("aria-expanded", String(ouvrir));
+});
+
+// ---------- Tirage au sort ----------
+function estVu(id) { return vus.some((f) => f.id === id); }
+
+async function tirerDansTMDB(exclureVus) {
+  const epoque = EPOQUES[$("epoque").value];
+  const params = {
+    language: "fr-FR", include_adult: "false", sort_by: "popularity.desc",
+    "vote_count.gte": $("notoriete").value, "vote_average.gte": 5.5,
+    with_genres: $("genre").value,
+    "primary_release_date.gte": epoque.de, "primary_release_date.lte": epoque.a,
+    with_origin_country: ZONES[$("zone").value].code,
+  };
+  if (plateformesChoisies.length) {
+    params.with_watch_providers = plateformesChoisies.join("|");
+    params.watch_region = PAYS;
+    params.with_watch_monetization_types = "flatrate";
+  }
+  const premiere = await appel("/discover/movie", { ...params, page: 1 });
+  if (premiere.total_results === 0) return null;
+  const nbPages = Math.min(premiere.total_pages, 500);
+  for (let essai = 0; essai < 6; essai++) {
+    const page = 1 + Math.floor(Math.random() * nbPages);
+    const donnees = page === 1 ? premiere : await appel("/discover/movie", { ...params, page });
+    let candidats = donnees.results;
+    if (exclureVus) candidats = candidats.filter((f) => !estVu(f.id));
+    if (candidats.length) return auHasard(candidats).id;
+  }
+  return null;
+}
+
+// Au premier tirage : le bouton disparaît, la fenêtre du film prend sa place, les filtres passent sur le côté
+function passerEnModeFilm() {
+  $("boutonTirage").hidden = true;
+  $("fenetreFilm").hidden = false;
+  $("fenetreFiltres").hidden = false;
+  $("filtresCote").appendChild($("blocFiltres")); // on déplace les filtres, leurs réglages sont conservés
+  $("scene").classList.add("avec-film");
+}
+function messageFenetre(texte, avecBouton) {
+  $("fenetreFilm").classList.remove("charge");
+  $("fenetreFilm").innerHTML = `<p class="message">${esc(texte)}</p>` +
+    (avecBouton ? '<div class="actions"><button class="barre moyenne" id="boutonAutre" type="button">Réessayer</button></div>' : "");
+  if (avecBouton) $("boutonAutre").addEventListener("click", tirer);
+}
+function erreurFenetre(e) {
+  messageFenetre(e.message === "CLE"
+    ? "Il manque la clé API : ouvre le menu (en haut à gauche) et colle-la dans « Mode test local »."
+    : "Impossible de joindre le service de films (" + e.message + "). Réessaie dans un instant.", true);
+  if (e.message === "CLE") { $("blocCle").open = true; }
+}
+
+async function tirer() {
+  const mode = $("vus").value;
+  passerEnModeFilm();
+  $("fenetreFilm").classList.add("charge");
+  if (!$("fenetreFilm").innerHTML) $("fenetreFilm").innerHTML = '<p class="message">Tirage en cours…</p>';
+  try {
+    let id = null;
+    if (mode === "vus") id = vus.length ? auHasard(vus).id : null;
+    else id = await tirerDansTMDB(mode === "pasvus");
+    if (id === null) {
+      messageFenetre(mode === "vus"
+        ? "Ta liste de films vus est vide. Marque quelques films comme vus pour l’alimenter."
+        : "Aucun film ne correspond à ces filtres. Essaie d’en retirer un dans la fenêtre de droite.", true);
+    } else {
+      await afficherFilm(id);
+    }
+  } catch (e) { erreurFenetre(e); }
+}
+
+// Ouvre un film précis (depuis la recherche, le catalogue ou la liste des films vus)
+async function ouvrirFilm(id) {
+  allerA("accueil");
+  passerEnModeFilm();
+  $("fenetreFilm").classList.add("charge");
+  if (!$("fenetreFilm").innerHTML) $("fenetreFilm").innerHTML = '<p class="message">Chargement…</p>';
+  try { await afficherFilm(id); } catch (e) { erreurFenetre(e); }
+}
+
+// ---------- Fiche du film ----------
+// Résumé court : les premières phrases seulement (le début d’un synopsis présente le point de départ,
+// la suite est celle qui risque de spoiler). 7 lignes maximum à l’écran.
+function resumeCourt(texte) {
+  if (!texte) return "Pas de synopsis disponible en français.";
+  const phrases = texte.match(/[^.!?…]+[.!?…]+["»”)]?(\s+|$)/g) || [texte];
+  let sortie = "", n = 0;
+  for (const p of phrases) {
+    if (sortie && (sortie + p).length > 360) break;
+    sortie += p; n++;
+    if (n >= 3 || sortie.split(/\s+/).length >= 45) break; // 3 phrases maximum
+  }
+  return sortie.trim();
+}
+
+function lienBandeAnnonce(f) {
+  const videos = ((f.videos && f.videos.results) || []).filter((v) => v.site === "YouTube" && v.type === "Trailer");
+  const choix = videos.find((v) => v.iso_639_1 === "fr") || videos.find((v) => v.iso_639_1 === "en") || videos[0];
+  if (choix) return "https://www.youtube.com/watch?v=" + encodeURIComponent(choix.key);
+  const annee = (f.release_date || "").slice(0, 4);
+  return "https://www.youtube.com/results?search_query=" + encodeURIComponent(`${f.title} ${annee} bande annonce`);
+}
+
+function lienPlateforme(p, titre, lienTMDB) {
+  const direct = RECHERCHE_PLATEFORME[p.provider_id];
+  return direct ? direct(encodeURIComponent(titre)) : (lienTMDB || "");
+}
+
+async function afficherFilm(id) {
+  const f = await appel("/movie/" + id, {
+    language: "fr-FR", append_to_response: "credits,videos,watch/providers", include_video_language: "fr,en",
+  });
+  const annee = (f.release_date || "").slice(0, 4);
+  filmCourant = { id: f.id, titre: f.title, annee, affiche: f.poster_path || "", genres: (f.genres || []).map((g) => g.id) };
+  const dispo = f["watch/providers"] && f["watch/providers"].results && f["watch/providers"].results[PAYS];
+  const abonnements = (dispo && dispo.flatrate) || [];
+  const duree = f.runtime ? `${Math.floor(f.runtime / 60)} h ${String(f.runtime % 60).padStart(2, "0")}` : "";
+  const meta = [annee, duree, (f.genres || []).map((g) => g.name).join(", ")].filter(Boolean).join(" · ");
+  const realisateurs = ((f.credits && f.credits.crew) || []).filter((c) => c.job === "Director").map((c) => c.name);
+  const acteurs = ((f.credits && f.credits.cast) || []).slice(0, 5).map((c) => c.name);
+  const plateformes = abonnements.map((p) => {
+    const lien = lienPlateforme(p, f.title, dispo.link);
+    const logo = p.logo_path ? `<img src="${IMG}w92${p.logo_path}" alt="">` : "";
+    return lien
+      ? `<a class="plateforme" href="${esc(lien)}" target="_blank" rel="noopener noreferrer">${logo}${esc(p.provider_name)}</a>`
+      : `<span class="plateforme">${logo}${esc(p.provider_name)}</span>`;
+  }).join("");
+
+  $("fenetreFilm").classList.remove("charge");
+  $("fenetreFilm").innerHTML = `
+    <article class="film">
+      ${f.poster_path
+        ? `<a class="affiche" href="${esc(lienBandeAnnonce(f))}" target="_blank" rel="noopener noreferrer" aria-label="Voir la bande-annonce de ${esc(f.title)} sur YouTube" title="Voir la bande-annonce sur YouTube">
+             <img src="${IMG}w500${f.poster_path}" alt="Affiche de ${esc(f.title)}">
+             <span class="lecture"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1l9 5-9 5z" fill="currentColor"/></svg>Bande-annonce</span>
+           </a>`
+        : `<a class="affiche" href="${esc(lienBandeAnnonce(f))}" target="_blank" rel="noopener noreferrer">Bande-annonce</a>`}
+      <div>
+        <h2>${esc(f.title)}</h2>
+        <p class="meta"><span class="note">${f.vote_average ? f.vote_average.toFixed(1) : "–"}/10</span>${esc(meta)}</p>
+        <p class="synopsis">${esc(resumeCourt(f.overview))}</p>
+        ${realisateurs.length ? `<p class="equipe"><strong>Réalisation</strong>${esc(realisateurs.join(", "))}</p>` : ""}
+        ${acteurs.length ? `<p class="equipe"><strong>Avec</strong>${esc(acteurs.join(", "))}</p>` : ""}
+        <p class="dispo"><strong>Streaming</strong>${plateformes || '<span class="petit">pas sur les plateformes d’abonnement en France</span>'}</p>
+        <div class="actions">
+          <button class="barre moyenne" id="boutonAutre" type="button">Un autre</button>
+          <button class="bouton moyen" id="boutonVu" type="button"></button>
+        </div>
+      </div>
+    </article>`;
+  majBoutonVu();
+  $("boutonVu").addEventListener("click", () => basculerVu(filmCourant));
+  $("boutonAutre").addEventListener("click", tirer);
+}
+
+// ---------- Films vus ----------
+function majBoutonVu() {
+  const b = $("boutonVu");
+  if (b && filmCourant) b.textContent = estVu(filmCourant.id) ? "Retirer des films vus" : "Je l’ai déjà vu";
+}
+function basculerVu(film) {
+  if (estVu(film.id)) vus = vus.filter((f) => f.id !== film.id);
+  else vus.push({ ...film, ajoute: Date.now() });
+  ecrire("films_vus", vus);
+  majPartout();
+}
+// Remet à jour tout ce qui dépend de la liste des films vus
+function majPartout() {
+  $("navVus").textContent = `Mes films vus (${vus.length})`;
+  majBoutonVu();
+  if (!$("vueVus").hidden) afficherVus();
+  if (!$("resultatsRecherche").hidden) afficherRecherche();
+  if (!$("vueCatalogue").hidden) afficherCatalogue();
+}
+function afficherVus() {
+  $("navVus").textContent = `Mes films vus (${vus.length})`;
+  $("titreVus").textContent = `Mes films vus (${vus.length})`;
+  const genre = Number($("genreVus").value) || 0;
+  const liste = vus.filter((f) => !genre || (f.genres || []).includes(genre));
+  const sens = $("triVus").value === "croissant" ? 1 : -1;
+  liste.sort((a, b) => sens * ((a.ajoute || 0) - (b.ajoute || 0)));
+  if (!liste.length) {
+    $("listeVus").innerHTML = `<p class="message">${vus.length ? "Aucun film vu dans ce genre." : "Aucun film pour l’instant. Marque un film comme vu depuis sa fiche, ou cherche-le avec la barre de recherche."}</p>`;
+    return;
+  }
+  $("listeVus").innerHTML = liste.map((f) => {
+    const genres = (f.genres || []).map((g) => nomsGenres[g]).filter(Boolean).join(", ");
+    const date = f.ajoute ? "ajouté le " + new Date(f.ajoute).toLocaleDateString("fr-FR") : "date d’ajout inconnue";
+    return `<article class="carte-vue">
+      <button class="miniature" type="button" data-act="ouvrir" data-id="${f.id}" aria-label="Ouvrir la fiche de ${esc(f.titre)}">${f.affiche ? `<img src="${IMG}w185${f.affiche}" alt="" loading="lazy">` : ""}</button>
+      <div>
+        <h3><button class="titre" type="button" data-act="ouvrir" data-id="${f.id}">${esc(f.titre)}${f.annee ? " (" + esc(f.annee) + ")" : ""}</button></h3>
+        <p class="petit">${esc([genres, date].filter(Boolean).join(" · "))}</p>
+        <button class="lien-rouge" type="button" data-act="retirer" data-id="${f.id}">Retirer</button>
+      </div></article>`;
+  }).join("");
+}
+$("listeVus").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-act]"); if (!b) return;
+  const id = Number(b.dataset.id);
+  if (b.dataset.act === "ouvrir") ouvrirFilm(id);
+  if (b.dataset.act === "retirer") { vus = vus.filter((f) => f.id !== id); ecrire("films_vus", vus); majPartout(); }
+});
+$("triVus").addEventListener("change", afficherVus);
+$("genreVus").addEventListener("change", afficherVus);
+
+// Les films enregistrés avec la première version n’ont ni affiche ni genres : on les complète
+let completionEnCours = false;
+async function completerVus() {
+  if (completionEnCours) return;
+  const aCompleter = vus.filter((f) => !f.affiche || !f.genres);
+  if (!aCompleter.length) return;
+  completionEnCours = true;
+  try {
+    for (const f of aCompleter.slice(0, 40)) {
+      const d = await appel("/movie/" + f.id, { language: "fr-FR" });
+      f.affiche = d.poster_path || ""; f.genres = (d.genres || []).map((g) => g.id);
+    }
+    ecrire("films_vus", vus);
+    if (!$("vueVus").hidden) afficherVus();
+  } catch (e) { /* on réessaiera à la prochaine ouverture */ }
+  completionEnCours = false;
+}
+
+// ---------- Recherche ----------
+let resultatsRecherche = [];
+let minuteur = null;
+function fermerRecherche() { $("resultatsRecherche").hidden = true; }
+function afficherRecherche() {
+  const ul = $("resultatsRecherche");
+  ul.hidden = false;
+  if (!resultatsRecherche.length) { ul.innerHTML = '<li class="vide">Aucun film trouvé.</li>'; return; }
+  ul.innerHTML = resultatsRecherche.map((r) => {
+    const annee = (r.release_date || "").slice(0, 4);
+    const vu = estVu(r.id);
+    return `<li>
+      <button class="ligne-ouvrir" type="button" data-act="ouvrir" data-id="${r.id}">
+        ${r.poster_path ? `<img src="${IMG}w92${r.poster_path}" alt="" loading="lazy">` : '<span class="sans-affiche"></span>'}
+        <span style="min-width:0"><strong>${esc(r.title)}</strong><span class="petit">${esc(annee)}</span></span>
+      </button>
+      <button class="ligne-vu ${vu ? "actif" : ""}" type="button" data-act="vu" data-id="${r.id}" aria-label="${vu ? "Retirer des films vus" : "Ajouter aux films vus"}">${vu ? "Vu ✓" : "+ Vu"}</button>
+    </li>`;
+  }).join("");
+}
+async function chercher(q) {
+  try {
+    const d = await appel("/search/movie", { query: q, language: "fr-FR", include_adult: "false" });
+    if ($("champRecherche").value.trim() !== q) return; // la saisie a changé entre-temps
+    resultatsRecherche = d.results.slice(0, 8);
+    afficherRecherche();
+  } catch (e) {
+    $("resultatsRecherche").hidden = false;
+    $("resultatsRecherche").innerHTML = `<li class="vide">${e.message === "CLE" ? "Ajoute ta clé API dans le menu (mode test local)." : "Recherche indisponible pour le moment."}</li>`;
+  }
+}
+$("champRecherche").addEventListener("input", () => {
+  clearTimeout(minuteur);
+  const q = $("champRecherche").value.trim();
+  if (q.length < 2) { fermerRecherche(); return; }
+  minuteur = setTimeout(() => chercher(q), 350);
+});
+$("champRecherche").addEventListener("focus", () => { if (resultatsRecherche.length && $("champRecherche").value.trim().length >= 2) afficherRecherche(); });
+$("resultatsRecherche").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-act]"); if (!b) return;
+  const r = resultatsRecherche.find((x) => x.id === Number(b.dataset.id)); if (!r) return;
+  if (b.dataset.act === "ouvrir") { fermerRecherche(); ouvrirFilm(r.id); }
+  if (b.dataset.act === "vu") {
+    basculerVu({ id: r.id, titre: r.title, annee: (r.release_date || "").slice(0, 4), affiche: r.poster_path || "", genres: r.genre_ids || [] });
+  }
+});
+document.addEventListener("click", (ev) => { if (!ev.target.closest(".recherche")) fermerRecherche(); });
+
+// ---------- Catalogue des plateformes ----------
+let cat = { page: 0, total: 1, films: [] };
+function paramsCatalogue(page) {
+  const tri = $("catTri").value;
+  const p = {
+    language: "fr-FR", include_adult: "false", page,
+    with_watch_providers: $("catPlateforme").value, watch_region: PAYS, with_watch_monetization_types: "flatrate",
+    with_genres: $("catGenre").value,
+  };
+  if (tri === "note") { p.sort_by = "vote_average.desc"; p["vote_count.gte"] = 300; }
+  else if (tri === "pop") { p.sort_by = "popularity.desc"; }
+  else { p.sort_by = "primary_release_date.desc"; p["vote_count.gte"] = 20; p["primary_release_date.lte"] = new Date().toISOString().slice(0, 10); }
+  return p;
+}
+async function chargerCatalogue(depuisDebut) {
+  if (!$("catPlateforme").value) { $("messageCatalogue").hidden = false; $("messageCatalogue").textContent = "Les plateformes ne sont pas encore chargées (clé API manquante ?)."; return; }
+  if (depuisDebut) { cat = { page: 0, total: 1, films: [] }; $("tuilesCatalogue").innerHTML = ""; }
+  $("messageCatalogue").hidden = false; $("messageCatalogue").textContent = "Chargement…"; $("boutonPlus").hidden = true;
+  try {
+    const d = await appel("/discover/movie", paramsCatalogue(cat.page + 1));
+    cat.page += 1; cat.total = Math.min(d.total_pages, 500); cat.films = cat.films.concat(d.results);
+    $("messageCatalogue").hidden = cat.films.length > 0;
+    if (!cat.films.length) $("messageCatalogue").textContent = "Aucun film pour cette sélection.";
+    afficherCatalogue();
+  } catch (e) { $("messageCatalogue").textContent = "Catalogue indisponible pour le moment (" + e.message + ")."; }
+}
+function afficherCatalogue() {
+  $("tuilesCatalogue").innerHTML = cat.films.map((f) => `
+    <button class="tuile" type="button" data-id="${f.id}">
+      ${f.poster_path ? `<img src="${IMG}w342${f.poster_path}" alt="" loading="lazy">` : '<span class="sans-affiche"></span>'}
+      ${estVu(f.id) ? '<span class="tag-vu">Vu</span>' : ""}
+      <span class="titre-tuile">${esc(f.title)}</span>
+      <span class="petit">${esc((f.release_date || "").slice(0, 4))}${f.vote_average ? " · " + f.vote_average.toFixed(1) + "/10" : ""}</span>
+    </button>`).join("");
+  $("boutonPlus").hidden = cat.page >= cat.total || !cat.films.length;
+}
+function ouvrirCatalogue() { if (!cat.films.length) chargerCatalogue(true); }
+["catPlateforme", "catGenre", "catTri"].forEach((id) => $(id).addEventListener("change", () => chargerCatalogue(true)));
+$("boutonPlus").addEventListener("click", () => chargerCatalogue(false));
+$("tuilesCatalogue").addEventListener("click", (ev) => { const t = ev.target.closest(".tuile"); if (t) ouvrirFilm(Number(t.dataset.id)); });
+
+// ---------- Démarrage ----------
+$("boutonTirage").addEventListener("click", tirer);
+allerA("accueil");
+chargerFiltres();
+</script>
+</body>
+</html>
