@@ -7,6 +7,7 @@ const AUTORISES = [
   /^\/watch\/providers\/movie$/,
   /^\/movie\/\d+$/,
   /^\/search\/movie$/,
+  /^\/search\/keyword$/,
 ];
 
 module.exports = async function handler(req, res) {

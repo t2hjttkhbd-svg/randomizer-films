@@ -88,7 +88,8 @@ button, select, input { font: inherit; color: inherit; }
 .barre:disabled { filter: grayscale(.6); cursor: wait; }
 .barre.moyenne { height: 52px; font-size: 1.1rem; flex: 1; }
 .bouton { padding: .45rem .9rem; border-radius: 10px; border: 1px solid var(--encre); background: var(--blanc); cursor: pointer; }
-.bouton:hover { background: var(--encre); color: #fff; }
+.bouton:hover:not(:disabled) { background: var(--encre); color: #fff; }
+.bouton:disabled { opacity: .4; cursor: not-allowed; }
 .bouton.moyen { height: 52px; flex: 1; font-size: 1rem; }
 
 /* ----- Accueil ----- */
@@ -141,7 +142,13 @@ main { padding: 0 1.25rem 3rem; }
 .plateforme { display: inline-flex; align-items: center; gap: .4rem; padding: .2rem .65rem .2rem .25rem; border: 1px solid var(--trait); border-radius: 999px; text-decoration: none; color: var(--encre); background: var(--fond); font-size: .92rem; }
 .plateforme:hover { border-color: var(--encre); }
 .plateforme img { width: 24px; height: 24px; border-radius: 6px; }
-.actions { display: flex; gap: .6rem; margin-top: 1.1rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.1rem; }
+.actions > * { min-width: 120px; }
+.age { display: inline-block; margin-left: .35rem; padding: 0 .45rem; border: 1.5px solid var(--encre); border-radius: 6px; font-weight: 600; font-size: .85rem; color: var(--encre); }
+.puce.case { display: flex; align-items: center; gap: .5rem; }
+.puce.case input { width: auto; margin: 0; }
+.retour { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; margin: -.4rem 0 .5rem -.4rem; border: 0; background: none; border-radius: 50%; cursor: pointer; color: var(--encre-douce); }
+.retour:hover { background: var(--fond); color: var(--encre); }
 .message { color: var(--encre-douce); text-align: center; max-width: 46ch; margin: 1rem auto; }
 
 /* ----- Pages Films vus / Catalogue ----- */
@@ -220,6 +227,7 @@ footer { max-width: 60ch; margin: 2rem auto 1.5rem; padding: 0 1.25rem; color: v
                 <option value="pasvus">Pas encore vus</option>
                 <option value="vus">Déjà vus (sans autres filtres)</option>
               </select>
+              <label class="puce large case"><input type="checkbox" id="docs"> Inclure les documentaires</label>
             </div>
             <div class="panneau" id="panneauPlateformes" hidden>
               <div class="pastilles" id="plateformes"><span class="petit">Chargement…</span></div>
@@ -241,8 +249,8 @@ footer { max-width: 60ch; margin: 2rem auto 1.5rem; padding: 0 1.25rem; color: v
     <h2 id="titreVus">Mes films vus</h2>
     <div class="outils">
       <select class="puce" id="triVus" aria-label="Trier par date d’ajout">
-        <option value="decroissant">Ajoutés récemment d’abord</option>
-        <option value="croissant">Ajoutés en premier d’abord</option>
+        <option value="croissant">Date d’ajout (croissant)</option>
+        <option value="decroissant" selected>Date d’ajout (décroissant)</option>
       </select>
       <select class="puce" id="genreVus" aria-label="Filtrer par genre"><option value="">Tous les genres</option></select>
     </div>
@@ -296,6 +304,7 @@ const ZONES = [
   { nom: "Espagne", code: "ES" },
   { nom: "Allemagne", code: "DE" },
   { nom: "Inde", code: "IN" },
+  { nom: "Afrique", code: "", codes: ["DZ","AO","BJ","BW","BF","BI","CV","CM","CF","TD","KM","CG","CD","CI","DJ","EG","GQ","ER","SZ","ET","GA","GM","GH","GN","GW","KE","LS","LR","LY","MG","MW","ML","MR","MU","MA","MZ","NA","NE","NG","RW","ST","SN","SC","SL","SO","ZA","SS","SD","TZ","TG","TN","UG","ZM","ZW"] },
 ];
 // Liens directs vers la recherche de la plateforme (ouvre l’application si elle est installée,
 // sur téléphone, sinon le site). Pour les autres plateformes : page du film sur TMDB/JustWatch.
@@ -374,10 +383,31 @@ function majBoutonPlateformes() {
   const n = plateformesChoisies.length;
   $("boutonPlateformes").textContent = n ? `Plateformes (${n})` : "Toutes les plateformes";
 }
-function remplirGenres(selectId, premiere) {
+// Deux genres ajoutés à ceux de TMDB : « Comédie musicale » (via le mot-clé TMDB « musical »)
+// et « Jeunesse » (genres Famille ou Animation).
+const GENRES_EXTRA = [
+  { valeur: "musical", nom: "Comédie musicale" },
+  { valeur: "jeunesse", nom: "Jeunesse" },
+];
+let idMotMusical = 4344; // mot-clé TMDB « musical » (revérifié au chargement)
+async function trouverMotCleMusical() {
+  try {
+    const d = await appel("/search/keyword", { query: "musical" });
+    const k = (d.results || []).find((r) => r.name.toLowerCase() === "musical");
+    if (k) idMotMusical = k.id;
+  } catch (e) { /* on garde la valeur par défaut */ }
+}
+function appliquerGenre(params, valeur) {
+  if (valeur === "musical") params.with_keywords = idMotMusical;
+  else if (valeur === "jeunesse") params.with_genres = "10751|16"; // "|" = l’un OU l’autre
+  else if (valeur) params.with_genres = valeur;
+}
+function remplirGenres(selectId, premiere, avecMusical = true) {
   const s = $(selectId);
   s.length = 1; s.options[0].text = premiere;
-  Object.entries(nomsGenres).sort((a, b) => a[1].localeCompare(b[1], "fr")).forEach(([id, nom]) => s.add(new Option(nom, id)));
+  const entrees = Object.entries(nomsGenres);
+  GENRES_EXTRA.forEach((g) => { if (avecMusical || g.valeur !== "musical") entrees.push([g.valeur, g.nom]); });
+  entrees.sort((a, b) => a[1].localeCompare(b[1], "fr")).forEach(([v, nom]) => s.add(new Option(nom, v)));
 }
 async function chargerFiltres() {
   EPOQUES.forEach((e, i) => $("epoque").add(new Option(e.nom, i)));
@@ -391,7 +421,8 @@ async function chargerFiltres() {
     genres.genres.forEach((g) => { nomsGenres[g.id] = g.name; });
     remplirGenres("genre", "Tous les genres");
     remplirGenres("catGenre", "Tous les genres");
-    remplirGenres("genreVus", "Tous les genres");
+    remplirGenres("genreVus", "Tous les genres", false);
+    trouverMotCleMusical();
     const priorite = (p) => (p.display_priorities && p.display_priorities[PAYS] != null) ? p.display_priorities[PAYS] : p.display_priority;
     fournisseurs = prov.results.sort((a, b) => priorite(a) - priorite(b)).slice(0, 24);
     $("plateformes").innerHTML = fournisseurs.map((p) => `
@@ -423,31 +454,66 @@ $("boutonPlateformes").addEventListener("click", () => {
 // ---------- Tirage au sort ----------
 function estVu(id) { return vus.some((f) => f.id === id); }
 
+// Films déjà proposés pendant cette visite : ils ne reviennent jamais (mémorisés tant que l’onglet reste ouvert)
+let dejaPropose = new Set((() => { try { return JSON.parse(sessionStorage.getItem("deja_propose") || "[]"); } catch (e) { return []; } })());
+function noterPropose(id) {
+  dejaPropose.add(id);
+  try { sessionStorage.setItem("deja_propose", JSON.stringify([...dejaPropose])); } catch (e) { /* ignoré */ }
+}
+function viderPropose() {
+  dejaPropose = new Set();
+  try { sessionStorage.removeItem("deja_propose"); } catch (e) { /* ignoré */ }
+}
+let pile = [];            // films affichés, dans l’ordre (le dernier est celui à l’écran) : sert au bouton « Précédent »
+let origineFiche = null;  // "vus" ou "catalogue" si la fiche a été ouverte depuis ces pages (pour la flèche retour)
+let defilement = 0;       // position de la page avant d’ouvrir la fiche, retrouvée au retour
+let occupe = false;       // évite les doubles clics pendant un chargement
+const cacheFilms = new Map();
+const AFRIQUE_PRINCIPAUX = ["ZA", "EG", "MA", "NG", "DZ", "TN", "SN", "CI", "CM", "KE", "BF", "ML", "GH", "CD", "ET"];
+function melanger(liste) {
+  const l = [...liste];
+  for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; }
+  return l;
+}
+
+// Renvoie l’identifiant d’un film, ou "aucun" (rien ne correspond aux filtres), ou "epuise" (tout a déjà été proposé)
 async function tirerDansTMDB(exclureVus) {
   const epoque = EPOQUES[$("epoque").value];
+  const zone = ZONES[$("zone").value];
   const params = {
     language: "fr-FR", include_adult: "false", sort_by: "popularity.desc",
     "vote_count.gte": $("notoriete").value, "vote_average.gte": 5.5,
-    with_genres: $("genre").value,
     "primary_release_date.gte": epoque.de, "primary_release_date.lte": epoque.a,
-    with_origin_country: ZONES[$("zone").value].code,
   };
+  appliquerGenre(params, $("genre").value);
+  // Documentaires exclus, sauf si la case est cochée ou si le genre « Documentaire » est choisi
+  if (!$("docs").checked && $("genre").value !== "99") params.without_genres = "99";
   if (plateformesChoisies.length) {
     params.with_watch_providers = plateformesChoisies.join("|");
     params.watch_region = PAYS;
     params.with_watch_monetization_types = "flatrate";
   }
-  const premiere = await appel("/discover/movie", { ...params, page: 1 });
-  if (premiere.total_results === 0) return null;
+  // Zone : un pays, ou tous les pays d’Afrique d’un coup. Si ce filtre multi-pays ne renvoie rien,
+  // on essaie les principaux pays africains un par un.
+  const essaisZone = zone.codes ? [zone.codes.join("|"), ...melanger(AFRIQUE_PRINCIPAUX)] : [zone.code];
+  let premiere = null;
+  for (const pays of essaisZone) {
+    params.with_origin_country = pays;
+    premiere = await appel("/discover/movie", { ...params, page: 1 });
+    if (premiere.total_results > 0) break;
+  }
+  if (!premiere || premiere.total_results === 0) return "aucun";
   const nbPages = Math.min(premiere.total_pages, 500);
-  for (let essai = 0; essai < 6; essai++) {
-    const page = 1 + Math.floor(Math.random() * nbPages);
+  // On parcourt jusqu’à 12 pages différentes, tirées au hasard, à la recherche d’un film jamais proposé
+  const pages = new Set();
+  const maxEssais = Math.min(nbPages, 12);
+  while (pages.size < maxEssais) pages.add(1 + Math.floor(Math.random() * nbPages));
+  for (const page of pages) {
     const donnees = page === 1 ? premiere : await appel("/discover/movie", { ...params, page });
-    let candidats = donnees.results;
-    if (exclureVus) candidats = candidats.filter((f) => !estVu(f.id));
+    const candidats = donnees.results.filter((f) => !dejaPropose.has(f.id) && !(exclureVus && estVu(f.id)));
     if (candidats.length) return auHasard(candidats).id;
   }
-  return null;
+  return "epuise";
 }
 
 // Au premier tirage : le bouton disparaît, la fenêtre du film prend sa place, les filtres passent sur le côté
@@ -471,32 +537,77 @@ function erreurFenetre(e) {
   if (e.message === "CLE") { $("blocCle").open = true; }
 }
 
+function messageEpuise() {
+  $("fenetreFilm").classList.remove("charge");
+  $("fenetreFilm").innerHTML = '<p class="message">Tu as fait le tour de tous les films qui correspondent à ces filtres. Change les filtres puis réessaie, ou repars de zéro.</p><div class="actions"><button class="bouton moyen" id="boutonReessayer" type="button">Réessayer avec les filtres</button><button class="barre moyenne" id="boutonRecommencer" type="button">Recommencer la liste</button></div>';
+  $("boutonReessayer").addEventListener("click", tirer);
+  $("boutonRecommencer").addEventListener("click", () => { viderPropose(); tirer(); });
+}
+
 async function tirer() {
+  if (occupe) return;
+  occupe = true;
+  origineFiche = null;
   const mode = $("vus").value;
   passerEnModeFilm();
   $("fenetreFilm").classList.add("charge");
   if (!$("fenetreFilm").innerHTML) $("fenetreFilm").innerHTML = '<p class="message">Tirage en cours…</p>';
   try {
-    let id = null;
-    if (mode === "vus") id = vus.length ? auHasard(vus).id : null;
-    else id = await tirerDansTMDB(mode === "pasvus");
-    if (id === null) {
+    let id;
+    if (mode === "vus") {
+      if (!vus.length) id = "aucun";
+      else {
+        const restants = vus.filter((f) => !dejaPropose.has(f.id));
+        id = restants.length ? auHasard(restants).id : "epuise";
+      }
+    } else {
+      id = await tirerDansTMDB(mode === "pasvus");
+    }
+    if (id === "aucun") {
       messageFenetre(mode === "vus"
         ? "Ta liste de films vus est vide. Marque quelques films comme vus pour l’alimenter."
-        : "Aucun film ne correspond à ces filtres. Essaie d’en retirer un dans la fenêtre de droite.", true);
+        : "Aucun film ne correspond à ces filtres. Essaie d’en retirer un.", true);
+    } else if (id === "epuise") {
+      messageEpuise();
     } else {
+      noterPropose(id);
       await afficherFilm(id);
     }
   } catch (e) { erreurFenetre(e); }
+  occupe = false;
+}
+
+// Revient au film affiché juste avant
+async function precedent() {
+  if (occupe || pile.length < 2) return;
+  occupe = true;
+  origineFiche = null;
+  $("fenetreFilm").classList.add("charge");
+  pile.pop();
+  try { await afficherFilm(pile[pile.length - 1], { sansHistorique: true }); } catch (e) { erreurFenetre(e); }
+  occupe = false;
 }
 
 // Ouvre un film précis (depuis la recherche, le catalogue ou la liste des films vus)
-async function ouvrirFilm(id) {
+async function ouvrirFilm(id, origine = null) {
+  if (occupe) return;
+  occupe = true;
+  origineFiche = origine;
+  defilement = origine ? window.scrollY : 0;
   allerA("accueil");
   passerEnModeFilm();
   $("fenetreFilm").classList.add("charge");
   if (!$("fenetreFilm").innerHTML) $("fenetreFilm").innerHTML = '<p class="message">Chargement…</p>';
   try { await afficherFilm(id); } catch (e) { erreurFenetre(e); }
+  occupe = false;
+}
+
+// Flèche retour : revient à la liste d’où l’on venait, à la même position
+function retourOrigine() {
+  const o = origineFiche, y = defilement;
+  if (!o) return;
+  allerA(o);
+  setTimeout(() => window.scrollTo(0, y), 0);
 }
 
 // ---------- Fiche du film ----------
@@ -527,16 +638,35 @@ function lienPlateforme(p, titre, lienTMDB) {
   return direct ? direct(encodeURIComponent(titre)) : (lienTMDB || "");
 }
 
-async function afficherFilm(id) {
-  const f = await appel("/movie/" + id, {
-    language: "fr-FR", append_to_response: "credits,videos,watch/providers", include_video_language: "fr,en",
-  });
+// Âge conseillé en France (classification TMDB : U, 10, 12, 16, 18)
+function ageFrance(f) {
+  const pays = ((f.release_dates && f.release_dates.results) || []).find((r) => r.iso_3166_1 === "FR");
+  if (!pays) return "";
+  const certs = (pays.release_dates || []).filter((d) => d.certification);
+  const choix = certs.find((d) => d.type === 3) || certs[0];
+  if (!choix) return "";
+  const c = choix.certification.trim().toUpperCase().replace(/^[-+]/, "").replace(/\s*ANS$/, "");
+  if (["U", "TP", "TOUS PUBLICS"].includes(c)) return "Tous publics";
+  if (["10", "12", "16", "18"].includes(c)) return "-" + c;
+  return "";
+}
+
+async function afficherFilm(id, options = {}) {
+  let f = cacheFilms.get(id);
+  if (!f) {
+    f = await appel("/movie/" + id, {
+      language: "fr-FR", append_to_response: "credits,videos,watch/providers,release_dates", include_video_language: "fr,en",
+    });
+    cacheFilms.set(id, f);
+  }
+  if (!options.sansHistorique && pile[pile.length - 1] !== id) pile.push(id);
   const annee = (f.release_date || "").slice(0, 4);
   filmCourant = { id: f.id, titre: f.title, annee, affiche: f.poster_path || "", genres: (f.genres || []).map((g) => g.id) };
   const dispo = f["watch/providers"] && f["watch/providers"].results && f["watch/providers"].results[PAYS];
   const abonnements = (dispo && dispo.flatrate) || [];
   const duree = f.runtime ? `${Math.floor(f.runtime / 60)} h ${String(f.runtime % 60).padStart(2, "0")}` : "";
   const meta = [annee, duree, (f.genres || []).map((g) => g.name).join(", ")].filter(Boolean).join(" · ");
+  const age = ageFrance(f);
   const realisateurs = ((f.credits && f.credits.crew) || []).filter((c) => c.job === "Director").map((c) => c.name);
   const acteurs = ((f.credits && f.credits.cast) || []).slice(0, 5).map((c) => c.name);
   const plateformes = abonnements.map((p) => {
@@ -546,9 +676,13 @@ async function afficherFilm(id) {
       ? `<a class="plateforme" href="${esc(lien)}" target="_blank" rel="noopener noreferrer">${logo}${esc(p.provider_name)}</a>`
       : `<span class="plateforme">${logo}${esc(p.provider_name)}</span>`;
   }).join("");
+  const libelleRetour = origineFiche === "vus" ? "Retour à mes films vus" : "Retour au catalogue";
+  const flecheRetour = origineFiche
+    ? `<button class="retour" id="boutonRetour" type="button" aria-label="${libelleRetour}" title="${libelleRetour}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>`
+    : "";
 
   $("fenetreFilm").classList.remove("charge");
-  $("fenetreFilm").innerHTML = `
+  $("fenetreFilm").innerHTML = flecheRetour + `
     <article class="film">
       ${f.poster_path
         ? `<a class="affiche" href="${esc(lienBandeAnnonce(f))}" target="_blank" rel="noopener noreferrer" aria-label="Voir la bande-annonce de ${esc(f.title)} sur YouTube" title="Voir la bande-annonce sur YouTube">
@@ -558,20 +692,23 @@ async function afficherFilm(id) {
         : `<a class="affiche" href="${esc(lienBandeAnnonce(f))}" target="_blank" rel="noopener noreferrer">Bande-annonce</a>`}
       <div>
         <h2>${esc(f.title)}</h2>
-        <p class="meta"><span class="note">${f.vote_average ? f.vote_average.toFixed(1) : "–"}/10</span>${esc(meta)}</p>
+        <p class="meta"><span class="note">${f.vote_average ? f.vote_average.toFixed(1) : "–"}/10</span>${esc(meta)}${age ? `<span class="age" title="Âge conseillé (France)">${esc(age)}</span>` : ""}</p>
         <p class="synopsis">${esc(resumeCourt(f.overview))}</p>
         ${realisateurs.length ? `<p class="equipe"><strong>Réalisation</strong>${esc(realisateurs.join(", "))}</p>` : ""}
         ${acteurs.length ? `<p class="equipe"><strong>Avec</strong>${esc(acteurs.join(", "))}</p>` : ""}
         <p class="dispo"><strong>Streaming</strong>${plateformes || '<span class="petit">pas sur les plateformes d’abonnement en France</span>'}</p>
         <div class="actions">
-          <button class="barre moyenne" id="boutonAutre" type="button">Un autre</button>
+          <button class="bouton moyen" id="boutonPrecedent" type="button" ${pile.length < 2 ? "disabled" : ""}>Précédent</button>
           <button class="bouton moyen" id="boutonVu" type="button"></button>
+          <button class="barre moyenne" id="boutonAutre" type="button">Un autre</button>
         </div>
       </div>
     </article>`;
   majBoutonVu();
+  $("boutonPrecedent").addEventListener("click", precedent);
   $("boutonVu").addEventListener("click", () => basculerVu(filmCourant));
   $("boutonAutre").addEventListener("click", tirer);
+  if ($("boutonRetour")) $("boutonRetour").addEventListener("click", retourOrigine);
 }
 
 // ---------- Films vus ----------
@@ -596,8 +733,12 @@ function majPartout() {
 function afficherVus() {
   $("navVus").textContent = `Mes films vus (${vus.length})`;
   $("titreVus").textContent = `Mes films vus (${vus.length})`;
-  const genre = Number($("genreVus").value) || 0;
-  const liste = vus.filter((f) => !genre || (f.genres || []).includes(genre));
+  const g = $("genreVus").value;
+  const liste = vus.filter((f) => {
+    if (!g) return true;
+    const ids = f.genres || [];
+    return g === "jeunesse" ? (ids.includes(10751) || ids.includes(16)) : ids.includes(Number(g));
+  });
   const sens = $("triVus").value === "croissant" ? 1 : -1;
   liste.sort((a, b) => sens * ((a.ajoute || 0) - (b.ajoute || 0)));
   if (!liste.length) {
@@ -619,7 +760,7 @@ function afficherVus() {
 $("listeVus").addEventListener("click", (ev) => {
   const b = ev.target.closest("button[data-act]"); if (!b) return;
   const id = Number(b.dataset.id);
-  if (b.dataset.act === "ouvrir") ouvrirFilm(id);
+  if (b.dataset.act === "ouvrir") ouvrirFilm(id, "vus");
   if (b.dataset.act === "retirer") { vus = vus.filter((f) => f.id !== id); ecrire("films_vus", vus); majPartout(); }
 });
 $("triVus").addEventListener("change", afficherVus);
@@ -698,8 +839,8 @@ function paramsCatalogue(page) {
   const p = {
     language: "fr-FR", include_adult: "false", page,
     with_watch_providers: $("catPlateforme").value, watch_region: PAYS, with_watch_monetization_types: "flatrate",
-    with_genres: $("catGenre").value,
   };
+  appliquerGenre(p, $("catGenre").value);
   if (tri === "note") { p.sort_by = "vote_average.desc"; p["vote_count.gte"] = 300; }
   else if (tri === "pop") { p.sort_by = "popularity.desc"; }
   else { p.sort_by = "primary_release_date.desc"; p["vote_count.gte"] = 20; p["primary_release_date.lte"] = new Date().toISOString().slice(0, 10); }
@@ -730,9 +871,11 @@ function afficherCatalogue() {
 function ouvrirCatalogue() { if (!cat.films.length) chargerCatalogue(true); }
 ["catPlateforme", "catGenre", "catTri"].forEach((id) => $(id).addEventListener("change", () => chargerCatalogue(true)));
 $("boutonPlus").addEventListener("click", () => chargerCatalogue(false));
-$("tuilesCatalogue").addEventListener("click", (ev) => { const t = ev.target.closest(".tuile"); if (t) ouvrirFilm(Number(t.dataset.id)); });
+$("tuilesCatalogue").addEventListener("click", (ev) => { const t = ev.target.closest(".tuile"); if (t) ouvrirFilm(Number(t.dataset.id), "catalogue"); });
 
 // ---------- Démarrage ----------
+$("docs").checked = lire("docs", false);
+$("docs").addEventListener("change", () => ecrire("docs", $("docs").checked));
 $("boutonTirage").addEventListener("click", tirer);
 allerA("accueil");
 chargerFiltres();
