@@ -175,6 +175,31 @@ main { padding: 0 1.25rem 3rem; }
 .suite .bouton { padding: .6rem 1.6rem; }
 
 footer { max-width: 60ch; margin: 2rem auto 1.5rem; padding: 0 1.25rem; color: var(--encre-douce); font-size: .8rem; text-align: center; }
+/* ----- Comptes ----- */
+.compte { position: absolute; right: 1.25rem; top: 1rem; height: 46px; padding: 0 1rem; border-radius: 999px; background: var(--blanc); border: 1px solid var(--trait); cursor: pointer; }
+.compte:hover { border-color: var(--encre); }
+@media (max-width: 640px) {
+  .entete h1 { padding: .45rem 5.4rem 0; font-size: 1.25rem; }
+  .compte { height: 40px; padding: 0 .75rem; font-size: .85rem; top: 1.1rem; }
+}
+.bandeau { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .6rem; margin: .8rem auto 0; padding: .5rem 1rem; width: min(720px, calc(100% - 2.5rem)); background: #fff6dd; border: 1px solid var(--safran); border-radius: 10px; font-size: .92rem; text-align: center; }
+.bandeau button { border: 0; background: none; font-weight: 600; text-decoration: underline; cursor: pointer; padding: 0; }
+dialog { border: 1px solid var(--trait); border-radius: 14px; padding: 1.5rem; width: min(420px, 92vw); background: var(--blanc); color: var(--encre); }
+dialog::backdrop { background: rgba(31, 22, 51, .45); }
+dialog h2 { font-size: 1.4rem; margin-bottom: .8rem; }
+dialog label { display: block; font-weight: 600; margin: .8rem 0 .3rem; }
+dialog input[type="email"], dialog input[type="password"] { width: 100%; padding: .6rem .7rem; border: 1px solid var(--trait); border-radius: 8px; background: #fff; }
+dialog .actions { margin-top: 1rem; }
+dialog p { margin: .5rem 0; }
+.fermer { position: absolute; top: .6rem; right: .8rem; border: 0; background: none; font-size: 1.6rem; line-height: 1; cursor: pointer; color: var(--encre-douce); }
+.onglets { display: flex; gap: .4rem; margin-bottom: .4rem; }
+.onglets button { flex: 1; padding: .5rem; border: 1px solid var(--trait); border-radius: 10px; background: #fff; cursor: pointer; }
+.onglets button[aria-pressed="true"] { background: var(--encre); color: #fff; border-color: var(--encre); }
+.erreur { color: var(--rouge); min-height: 1.4em; margin: .6rem 0 .4rem; font-size: .92rem; }
+.zone-danger { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--trait); }
+.barre.danger { background: #7a0f1f; }
+.toast { position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%); z-index: 60; background: var(--encre); color: #fff; padding: .7rem 1.1rem; border-radius: 10px; max-width: min(92vw, 520px); font-size: .95rem; }
+.lien-bas { border: 0; background: none; color: inherit; text-decoration: underline; cursor: pointer; padding: 0; font: inherit; }
 </style>
 </head>
 
@@ -182,6 +207,7 @@ footer { max-width: 60ch; margin: 2rem auto 1.5rem; padding: 0 1.25rem; color: v
 <body>
 <header class="entete">
   <button class="burger" id="boutonMenu" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="tiroir"><span></span><span></span><span></span></button>
+  <button class="compte" id="boutonCompte" type="button" hidden>Se connecter</button>
   <h1>Ce soir, on regarde quoi ?</h1>
   <div class="recherche" role="search">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -189,6 +215,11 @@ footer { max-width: 60ch; margin: 2rem auto 1.5rem; padding: 0 1.25rem; color: v
     <ul class="resultats-recherche" id="resultatsRecherche" hidden></ul>
   </div>
 </header>
+
+<div class="bandeau" id="bandeau" role="note" hidden>
+  <span>Sans compte, tes films vus sont perdus dès que tu quittes le site.</span>
+  <button id="bandeauCreer" type="button">Créer un compte</button>
+</div>
 
 <div class="voile" id="voile" hidden></div>
 <nav class="tiroir" id="tiroir" aria-label="Menu principal" inert>
@@ -275,9 +306,67 @@ footer { max-width: 60ch; margin: 2rem auto 1.5rem; padding: 0 1.25rem; color: v
   </section>
 </main>
 
-<footer>Données films et disponibilités : TMDB (disponibilités fournies par JustWatch). Ce site n’est ni approuvé ni certifié par TMDB.</footer>
+<footer>Données films et disponibilités : TMDB (disponibilités fournies par JustWatch). Ce site n’est ni approuvé ni certifié par TMDB. <button class="lien-bas" id="lienConfidentialite" type="button">Confidentialité</button></footer>
+
+<dialog id="dlgAuth" aria-labelledby="titreAuth">
+  <button class="fermer" id="fermerAuth" type="button" aria-label="Fermer">×</button>
+  <h2 id="titreAuth">Mon compte</h2>
+  <div class="onglets">
+    <button id="ongletConnexion" type="button" aria-pressed="true">Connexion</button>
+    <button id="ongletInscription" type="button" aria-pressed="false">Créer un compte</button>
+  </div>
+  <form id="formAuth">
+    <label for="champEmail">Adresse e-mail</label>
+    <input id="champEmail" type="email" autocomplete="email" required>
+    <label for="champMdp">Mot de passe (8 caractères minimum)</label>
+    <input id="champMdp" type="password" minlength="8" autocomplete="current-password" required>
+    <p class="petit" id="noteAuth" hidden>Note bien ton mot de passe : il n’y a pas encore de récupération par e-mail, un mot de passe oublié veut dire un compte perdu.</p>
+    <p class="erreur" id="messageAuth" role="alert"></p>
+    <button class="barre moyenne" id="validerAuth" type="submit" style="width:100%">Se connecter</button>
+  </form>
+  <p class="petit">Avec un compte, tes films vus et tes plateformes te suivent sur tous tes appareils.</p>
+</dialog>
+
+<dialog id="dlgCompte" aria-labelledby="titreCompte">
+  <button class="fermer" id="fermerCompte" type="button" aria-label="Fermer">×</button>
+  <h2 id="titreCompte">Mon compte</h2>
+  <p>Connecté en tant que <strong id="emailCompte"></strong></p>
+  <p class="petit" id="statsCompte"></p>
+  <div class="actions"><button class="bouton moyen" id="deconnexion" type="button">Se déconnecter</button></div>
+  <div class="zone-danger">
+    <button class="lien-rouge" id="supprimerCompte" type="button">Supprimer mon compte</button>
+    <div id="confirmSuppression" hidden>
+      <p>Cette action est définitive : ton compte, tes films vus et tes préférences seront effacés.</p>
+      <div class="actions">
+        <button class="bouton moyen" id="annulerSuppression" type="button">Annuler</button>
+        <button class="barre moyenne danger" id="confirmerSuppression" type="button">Supprimer définitivement</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="dlgImport" aria-labelledby="titreImport">
+  <h2 id="titreImport">Importer tes films vus ?</h2>
+  <p id="texteImport"></p>
+  <div class="actions">
+    <button class="bouton moyen" id="importPlusTard" type="button">Plus tard</button>
+    <button class="barre moyenne" id="importOk" type="button">Importer</button>
+  </div>
+</dialog>
+
+<dialog id="dlgConfidentialite" aria-labelledby="titreConfidentialite">
+  <button class="fermer" id="fermerConfidentialite" type="button" aria-label="Fermer">×</button>
+  <h2 id="titreConfidentialite">Confidentialité</h2>
+  <p><strong>Sans compte</strong>, rien n’est enregistré : tes films vus disparaissent quand tu quittes le site. Les plateformes que tu coches restent seulement dans ton navigateur.</p>
+  <p><strong>Avec un compte</strong>, le site enregistre ton adresse e-mail, ton mot de passe (conservé sous forme chiffrée par le service d’authentification, il n’est pas lisible), la liste de tes films vus et tes plateformes cochées.</p>
+  <p>Ces données servent uniquement à retrouver ta liste sur tous tes appareils. Elles ne sont ni vendues ni utilisées pour de la publicité. Elles sont hébergées par Supabase, et les informations sur les films viennent de TMDB.</p>
+  <p>Tu peux supprimer ton compte et toutes tes données à tout moment depuis « Mon compte ». Le site garde ta connexion dans le stockage de ton navigateur, sans cookie publicitaire.</p>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden></div>
 
 <!-- ============================ LOGIQUE (JavaScript) ============================ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"></script>
 <script>
 const API = "https://api.themoviedb.org/3";
 const IMG = "https://image.tmdb.org/t/p/";
@@ -320,7 +409,11 @@ function esc(texte) { const d = document.createElement("div"); d.textContent = t
 function auHasard(liste) { return liste[Math.floor(Math.random() * liste.length)]; }
 
 // Données de l’utilisateur (gardées dans le navigateur)
-let vus = lire("films_vus", []);                   // { id, titre, annee, affiche, genres:[ids], ajoute:horodatage }
+let vus = [];              // films vus : { id, titre, annee, affiche, genres:[ids], ajoute:horodatage }.
+                           // Sans compte, ils restent seulement en mémoire (perdus en quittant le site) ; avec un compte, ils sont enregistrés.
+let sb = null;             // connexion à Supabase (comptes), null si indisponible
+let session = null;        // session de l’utilisateur connecté, null sans compte
+let utilisateurCharge = null; // identifiant du compte dont les données sont chargées
 let plateformesChoisies = lire("plateformes", []); // identifiants TMDB
 let nomsGenres = {};       // { 28: "Action", ... }
 let fournisseurs = [];     // plateformes de streaming proposées (France)
@@ -366,6 +459,7 @@ function allerA(vue) {
   });
   if ($("tiroir").classList.contains("ouvert")) ouvrirMenu(false);
   window.scrollTo(0, 0);
+  majBandeau();
   if (vue === "vus") { afficherVus(); completerVus(); }
   if (vue === "catalogue") ouvrirCatalogue();
 }
@@ -442,8 +536,9 @@ async function chargerFiltres() {
 }
 $("plateformes").addEventListener("change", () => {
   plateformesChoisies = [...document.querySelectorAll("#plateformes input:checked")].map((c) => Number(c.value));
-  ecrire("plateformes", plateformesChoisies);
+  if (!session) ecrire("plateformes", plateformesChoisies); // sans compte : gardées dans le navigateur
   majBoutonPlateformes();
+  sauverPreferences();
 });
 $("boutonPlateformes").addEventListener("click", () => {
   const ouvrir = $("panneauPlateformes").hidden;
@@ -716,16 +811,33 @@ function majBoutonVu() {
   const b = $("boutonVu");
   if (b && filmCourant) b.textContent = estVu(filmCourant.id) ? "Retirer des films vus" : "Je l’ai déjà vu";
 }
-function basculerVu(film) {
-  if (estVu(film.id)) vus = vus.filter((f) => f.id !== film.id);
-  else vus.push({ ...film, ajoute: Date.now() });
-  ecrire("films_vus", vus);
-  majPartout();
+// Ligne enregistrée dans le compte pour un film vu
+function ligneCompte(f) {
+  return { user_id: session.user.id, film_id: f.id, titre: f.titre, annee: f.annee || "", affiche: f.affiche || "", genres: f.genres || [], ajoute: new Date(f.ajoute || Date.now()).toISOString() };
 }
+// Si l’enregistrement dans le compte échoue, la modification est annulée à l’écran
+async function ajouterVu(film) {
+  const entree = { ...film, ajoute: Date.now() };
+  vus.push(entree);
+  majPartout();
+  if (!session) return;
+  const { error } = await sb.from("films_vus").upsert(ligneCompte(entree));
+  if (error) { vus = vus.filter((f) => f.id !== film.id); majPartout(); toast("Enregistrement impossible, réessaie."); }
+}
+async function retirerVu(id) {
+  const ancien = vus.find((f) => f.id === id);
+  vus = vus.filter((f) => f.id !== id);
+  majPartout();
+  if (!session || !ancien) return;
+  const { error } = await sb.from("films_vus").delete().eq("film_id", id);
+  if (error) { vus.push(ancien); majPartout(); toast("Suppression impossible, réessaie."); }
+}
+function basculerVu(film) { return estVu(film.id) ? retirerVu(film.id) : ajouterVu(film); }
 // Remet à jour tout ce qui dépend de la liste des films vus
 function majPartout() {
   $("navVus").textContent = `Mes films vus (${vus.length})`;
   majBoutonVu();
+  majBandeau();
   if (!$("vueVus").hidden) afficherVus();
   if (!$("resultatsRecherche").hidden) afficherRecherche();
   if (!$("vueCatalogue").hidden) afficherCatalogue();
@@ -761,7 +873,7 @@ $("listeVus").addEventListener("click", (ev) => {
   const b = ev.target.closest("button[data-act]"); if (!b) return;
   const id = Number(b.dataset.id);
   if (b.dataset.act === "ouvrir") ouvrirFilm(id, "vus");
-  if (b.dataset.act === "retirer") { vus = vus.filter((f) => f.id !== id); ecrire("films_vus", vus); majPartout(); }
+  if (b.dataset.act === "retirer") retirerVu(id);
 });
 $("triVus").addEventListener("change", afficherVus);
 $("genreVus").addEventListener("change", afficherVus);
@@ -770,7 +882,7 @@ $("genreVus").addEventListener("change", afficherVus);
 let completionEnCours = false;
 async function completerVus() {
   if (completionEnCours) return;
-  const aCompleter = vus.filter((f) => !f.affiche || !f.genres);
+  const aCompleter = vus.filter((f) => f.affiche === undefined || f.genres === undefined);
   if (!aCompleter.length) return;
   completionEnCours = true;
   try {
@@ -778,7 +890,7 @@ async function completerVus() {
       const d = await appel("/movie/" + f.id, { language: "fr-FR" });
       f.affiche = d.poster_path || ""; f.genres = (d.genres || []).map((g) => g.id);
     }
-    ecrire("films_vus", vus);
+    if (session) await sb.from("films_vus").upsert(aCompleter.slice(0, 40).map(ligneCompte));
     if (!$("vueVus").hidden) afficherVus();
   } catch (e) { /* on réessaiera à la prochaine ouverture */ }
   completionEnCours = false;
@@ -873,10 +985,215 @@ function ouvrirCatalogue() { if (!cat.films.length) chargerCatalogue(true); }
 $("boutonPlus").addEventListener("click", () => chargerCatalogue(false));
 $("tuilesCatalogue").addEventListener("click", (ev) => { const t = ev.target.closest(".tuile"); if (t) ouvrirFilm(Number(t.dataset.id), "catalogue"); });
 
+// ---------- Comptes (Supabase) ----------
+const SUPABASE_URL = "https://jrqbpwxkyjjhoakezoly.supabase.co";
+const SUPABASE_CLE_PUBLIQUE = "sb_publishable_tcqXLgTR0R19LZgBjrSi2A_UWKHFCKU"; // clé publique, faite pour être visible dans le navigateur
+
+let minuteurToast = null;
+function toast(texte) {
+  const t = $("toast");
+  t.textContent = texte; t.hidden = false;
+  clearTimeout(minuteurToast);
+  minuteurToast = setTimeout(() => { t.hidden = true; }, 4500);
+}
+function pluriel(n, mot) { return `${n} ${mot}${n > 1 ? "s" : ""}`; }
+
+// Bandeau d’avertissement : visible seulement sans compte, une fois qu’un film vu est marqué (ou sur la page des films vus)
+function majBandeau() {
+  $("bandeau").hidden = !(sb && !session && (vus.length > 0 || !$("vueVus").hidden));
+}
+function majBoutonCompte() {
+  const b = $("boutonCompte");
+  b.hidden = !sb;
+  b.textContent = session ? "Mon compte" : "Se connecter";
+  b.title = session ? session.user.email : "";
+}
+function appliquerPlateformes(liste) {
+  plateformesChoisies = liste.map(Number);
+  document.querySelectorAll("#plateformes input").forEach((c) => { c.checked = plateformesChoisies.includes(Number(c.value)); });
+  majBoutonPlateformes();
+}
+let minuteurPref = null;
+function sauverPreferences(immediat = false) {
+  if (!sb || !session) return;
+  clearTimeout(minuteurPref);
+  const envoyer = async () => {
+    if (!session) return;
+    const { error } = await sb.from("preferences").upsert({ user_id: session.user.id, plateformes: plateformesChoisies, docs: $("docs").checked, updated_at: new Date().toISOString() });
+    if (error) toast("Préférences non enregistrées : réessaie.");
+  };
+  if (immediat) envoyer(); else minuteurPref = setTimeout(envoyer, 500);
+}
+
+// Chargement des données du compte après connexion
+async function chargerDonneesCompte() {
+  const invites = vus.slice(); // films marqués avant la connexion, pendant cette visite
+  try {
+    const [rv, rp] = await Promise.all([
+      sb.from("films_vus").select("film_id,titre,annee,affiche,genres,ajoute").limit(5000),
+      sb.from("preferences").select("plateformes,docs").maybeSingle(),
+    ]);
+    if (rv.error) throw rv.error;
+    if (rp.error) throw rp.error;
+    vus = rv.data.map((r) => ({ id: r.film_id, titre: r.titre, annee: r.annee || "", affiche: r.affiche || "", genres: r.genres || [], ajoute: Date.parse(r.ajoute) || 0 }));
+    const nouveaux = invites.filter((f) => !estVu(f.id));
+    if (nouveaux.length) {
+      const { error } = await sb.from("films_vus").upsert(nouveaux.map(ligneCompte));
+      if (error) toast("Les films marqués avant ta connexion n’ont pas pu être ajoutés.");
+      else { vus = vus.concat(nouveaux); toast(`${pluriel(nouveaux.length, "film vu")} avant ta connexion ajouté${nouveaux.length > 1 ? "s" : ""} à ton compte.`); }
+    }
+    if (rp.data) { appliquerPlateformes(rp.data.plateformes || []); $("docs").checked = !!rp.data.docs; }
+    else sauverPreferences(true); // premier passage : on enregistre les choix actuels
+    majPartout();
+    proposerImport();
+  } catch (e) { toast("Impossible de charger ton compte : " + (e && e.message ? e.message : "erreur") + "."); }
+}
+
+// Les films vus enregistrés dans le navigateur par les anciennes versions peuvent être importés dans le compte
+function proposerImport() {
+  const anciens = lire("films_vus", []);
+  if (!Array.isArray(anciens) || !anciens.length) return;
+  $("texteImport").textContent = `${pluriel(anciens.length, "film vu")} enregistré${anciens.length > 1 ? "s" : ""} sur cet appareil par une ancienne version du site. Les importer dans ton compte ?`;
+  if (!$("dlgImport").open) $("dlgImport").showModal();
+}
+async function importerAnciens() {
+  const anciens = lire("films_vus", []);
+  const maintenant = Date.now();
+  const neufs = anciens.filter((f) => f && f.id && !estVu(f.id)).map((f, i) => ({ id: f.id, titre: f.titre || "", annee: f.annee || "", affiche: f.affiche, genres: f.genres, ajoute: f.ajoute || (maintenant - (anciens.length - i) * 1000) }));
+  if (neufs.length) {
+    const { error } = await sb.from("films_vus").upsert(neufs.map(ligneCompte), { onConflict: "user_id,film_id", ignoreDuplicates: true });
+    if (error) { toast("Import impossible, réessaie."); return; }
+    vus = vus.concat(neufs);
+  }
+  try { localStorage.removeItem("films_vus"); } catch (e) { /* ignoré */ }
+  $("dlgImport").close();
+  toast(`${pluriel(neufs.length, "film vu")} importé${neufs.length > 1 ? "s" : ""}.`);
+  majPartout();
+  completerVus();
+}
+
+// Réaction aux connexions / déconnexions
+async function gererSession() {
+  if (session) {
+    if (utilisateurCharge !== session.user.id) {
+      utilisateurCharge = session.user.id;
+      await chargerDonneesCompte();
+    }
+  } else if (utilisateurCharge) {
+    utilisateurCharge = null;
+    vus = [];
+    appliquerPlateformes(lire("plateformes", []));
+    $("docs").checked = lire("docs", false);
+    majPartout();
+  }
+  majBandeau();
+}
+
+// Fenêtre de connexion / création de compte
+let modeAuth = "connexion";
+function definirModeAuth(mode) {
+  modeAuth = mode;
+  $("ongletConnexion").setAttribute("aria-pressed", String(mode === "connexion"));
+  $("ongletInscription").setAttribute("aria-pressed", String(mode === "inscription"));
+  $("validerAuth").textContent = mode === "connexion" ? "Se connecter" : "Créer mon compte";
+  $("champMdp").autocomplete = mode === "connexion" ? "current-password" : "new-password";
+  $("noteAuth").hidden = mode !== "inscription";
+  $("messageAuth").textContent = "";
+}
+function ouvrirAuth(mode) {
+  definirModeAuth(mode);
+  $("dlgAuth").showModal();
+  $("champEmail").focus();
+}
+function fermerAuth() { $("dlgAuth").close(); $("champMdp").value = ""; }
+function messageErreurAuth(e) {
+  const m = ((e && e.message) || "").toLowerCase();
+  const c = (e && e.code) || "";
+  if (c === "invalid_credentials" || m.includes("invalid login credentials")) return "E-mail ou mot de passe incorrect.";
+  if (c === "user_already_exists" || m.includes("already registered")) return "Un compte existe déjà avec cet e-mail : connecte-toi.";
+  if (c === "weak_password" || m.includes("at least")) return "Mot de passe trop faible (8 caractères minimum).";
+  if (c === "email_not_confirmed") return "Adresse e-mail non confirmée : vérifie ta boîte mail.";
+  if (c === "signup_disabled") return "Les inscriptions sont fermées pour le moment.";
+  if (c === "validation_failed" || m.includes("invalid format") || m.includes("unable to validate email")) return "Adresse e-mail invalide.";
+  if ((e && e.status === 429) || c.includes("rate_limit") || m.includes("rate limit")) return "Trop de tentatives : réessaie dans quelques minutes.";
+  if (m.includes("failed to fetch") || m.includes("network")) return "Connexion impossible : vérifie ta connexion internet.";
+  return "Une erreur est survenue : " + ((e && e.message) || "inconnue") + ".";
+}
+async function envoyerAuth(ev) {
+  ev.preventDefault();
+  const email = $("champEmail").value.trim();
+  const mdp = $("champMdp").value;
+  const msg = $("messageAuth");
+  msg.textContent = "";
+  if (mdp.length < 8) { msg.textContent = "Le mot de passe doit faire au moins 8 caractères."; return; }
+  $("validerAuth").disabled = true;
+  try {
+    if (modeAuth === "connexion") {
+      const { error } = await sb.auth.signInWithPassword({ email, password: mdp });
+      if (error) throw error;
+      fermerAuth();
+    } else {
+      const { data, error } = await sb.auth.signUp({ email, password: mdp });
+      if (error) throw error;
+      if (data.session) { fermerAuth(); toast("Compte créé : tu es connecté."); }
+      else msg.textContent = "Compte créé. Vérifie ta boîte mail pour confirmer ton adresse, puis connecte-toi.";
+    }
+  } catch (e) { msg.textContent = messageErreurAuth(e); }
+  $("validerAuth").disabled = false;
+}
+
+function ouvrirCompte() {
+  if (!session) { ouvrirAuth("connexion"); return; }
+  $("emailCompte").textContent = session.user.email;
+  $("statsCompte").textContent = `${pluriel(vus.length, "film vu")} enregistré${vus.length > 1 ? "s" : ""} dans ton compte.`;
+  $("confirmSuppression").hidden = true;
+  $("supprimerCompte").hidden = false;
+  $("dlgCompte").showModal();
+}
+async function supprimerCompte() {
+  $("confirmerSuppression").disabled = true;
+  const { error } = await sb.rpc("supprimer_mon_compte");
+  $("confirmerSuppression").disabled = false;
+  if (error) { toast("Suppression impossible : " + error.message); return; }
+  await sb.auth.signOut({ scope: "local" });
+  $("dlgCompte").close();
+  toast("Ton compte et tes données ont été supprimés.");
+}
+
+function initialiserComptes() {
+  if (window.supabase && typeof window.supabase.createClient === "function") {
+    try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_CLE_PUBLIQUE); } catch (e) { sb = null; }
+  }
+  majBoutonCompte();
+  majBandeau();
+  $("lienConfidentialite").addEventListener("click", () => $("dlgConfidentialite").showModal());
+  $("fermerConfidentialite").addEventListener("click", () => $("dlgConfidentialite").close());
+  if (!sb) return; // bibliothèque indisponible : le site reste utilisable sans compte
+  sb.auth.onAuthStateChange((evenement, s) => {
+    session = s;
+    // On évite d’appeler Supabase directement dans cette fonction (risque de blocage) : on décale
+    setTimeout(() => { majBoutonCompte(); gererSession(); }, 0);
+  });
+  $("boutonCompte").addEventListener("click", ouvrirCompte);
+  $("bandeauCreer").addEventListener("click", () => ouvrirAuth("inscription"));
+  $("ongletConnexion").addEventListener("click", () => definirModeAuth("connexion"));
+  $("ongletInscription").addEventListener("click", () => definirModeAuth("inscription"));
+  $("formAuth").addEventListener("submit", envoyerAuth);
+  $("fermerAuth").addEventListener("click", fermerAuth);
+  $("fermerCompte").addEventListener("click", () => $("dlgCompte").close());
+  $("deconnexion").addEventListener("click", async () => { await sb.auth.signOut(); $("dlgCompte").close(); toast("Tu es déconnecté."); });
+  $("supprimerCompte").addEventListener("click", () => { $("confirmSuppression").hidden = false; $("supprimerCompte").hidden = true; });
+  $("annulerSuppression").addEventListener("click", () => { $("confirmSuppression").hidden = true; $("supprimerCompte").hidden = false; });
+  $("confirmerSuppression").addEventListener("click", supprimerCompte);
+  $("importOk").addEventListener("click", importerAnciens);
+  $("importPlusTard").addEventListener("click", () => $("dlgImport").close());
+}
+
 // ---------- Démarrage ----------
 $("docs").checked = lire("docs", false);
-$("docs").addEventListener("change", () => ecrire("docs", $("docs").checked));
+$("docs").addEventListener("change", () => { if (!session) ecrire("docs", $("docs").checked); sauverPreferences(); });
 $("boutonTirage").addEventListener("click", tirer);
+initialiserComptes();
 allerA("accueil");
 chargerFiltres();
 </script>
